@@ -11,9 +11,17 @@ mkdir -p "$MACOS"
 
 echo "Building NvimOpen..."
 
+# Release builds set this explicitly so the artifact is ARM64 even when the
+# GitHub-hosted macOS runner itself is Intel. Local builds use the host target.
+TARGET_ARGS=()
+if [[ -n "${NVMOPEN_TARGET:-}" ]]; then
+  TARGET_ARGS=(-target "$NVMOPEN_TARGET")
+fi
+
 # Keep each terminal adapter in Sources/terms/*.swift.
 xcrun swiftc \
   -O \
+  "${TARGET_ARGS[@]}" \
   -framework AppKit \
   "$ROOT"/Sources/terms/*.swift \
   "$ROOT"/Sources/main.swift \

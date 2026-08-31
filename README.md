@@ -1,14 +1,147 @@
+
 # NvimOpen
 
-A tiny macOS `Open With` bridge that turns a Finder file-open event into:
+A small macOS **Open With** bridge for opening files from Finder directly in [Neovim](https://neovim.io/) using your preferred terminal emulator.
+
+Instead of opening a file in a GUI editor, NvimOpen turns a Finder open event into:
 
 ```sh
 nvim '/path/to/file'
 ```
 
-using your preferred terminal emulator.
+and launches it in your configured terminal.
 
-## Layout
+> [!IMPORTANT]
+> NvimOpen currently supports **Apple Silicon Macs only** (`arm64`).
+
+## Supported terminals
+
+| Terminal     | Bundle ID                |
+| ------------ | ------------------------ |
+| Terminal.app | `com.apple.Terminal`     |
+| iTerm2       | `com.googlecode.iterm2`  |
+| Alacritty    | `org.alacritty`          |
+| WezTerm      | `com.github.wez.wezterm` |
+| kitty        | `net.kovidgoyal.kitty`   |
+| Ghostty      | `com.mitchellh.ghostty`  |
+
+## Installation
+
+### Download
+
+Download the latest release from the **Releases** page:
+
+```text
+NvimOpen-v0.1.0-macos-arm64.zip
+```
+
+Then:
+
+1. Extract the ZIP.
+2. Move `NvimOpen.app` to `/Applications`.
+3. Try to open `NvimOpen.app` once.
+
+## Finder setup
+
+After installing NvimOpen:
+
+1. Select a file in Finder.
+2. Press **Command + I** or choose **Get Info**.
+3. Expand **Open with**.
+4. Select `NvimOpen.app`.
+5. Optionally click **Change All...** to use NvimOpen for every file of that type.
+
+NvimOpen declares broad `public.data` support so Finder can offer it as an **Open With** target.
+
+It does not automatically take ownership of any file types.
+
+## Configure your terminal
+
+NvimOpen reads your preferred terminal from:
+
+```text
+~/.terminal.default
+```
+
+Create the file and put the terminal's macOS bundle ID inside it.
+
+For example, for Ghostty:
+
+```text
+com.mitchellh.ghostty
+```
+
+For WezTerm:
+
+```text
+com.github.wez.wezterm
+```
+
+For iTerm2:
+
+```text
+com.googlecode.iterm2
+```
+
+Comments and blank lines are allowed:
+
+```text
+# My preferred terminal
+com.mitchellh.ghostty
+```
+
+The first non-empty, non-comment line is used.
+
+If `~/.terminal.default` does not exist or doesn't contain a bundle ID, NvimOpen defaults to:
+
+```text
+Terminal.app
+```
+
+
+## Build from source
+
+### Requirements
+
+* Apple Silicon Mac
+* macOS
+* Neovim available as `nvim`
+* Xcode Command Line Tools or Xcode
+
+Install the Xcode Command Line Tools if necessary:
+
+```sh
+xcode-select --install
+```
+
+Clone the repository:
+
+```sh
+git clone https://github.com/YOUR_USERNAME/NvimOpen.git
+cd NvimOpen
+```
+
+Build:
+
+```sh
+./build.sh
+```
+
+The app will be created at:
+
+```text
+dist/NvimOpen.app
+```
+
+Install it:
+
+```sh
+cp -R dist/NvimOpen.app /Applications/
+```
+
+The local build is ad-hoc signed using macOS `codesign`. A paid Apple Developer account is not required to build NvimOpen from source.
+
+## Project structure
 
 ```text
 NvimOpen/
@@ -26,110 +159,12 @@ NvimOpen/
         └── ghostty.swift
 ```
 
-Each terminal adapter follows the same contract:
-
-```swift
-enum SomeTerminal {
-    static let BUNDLE_ID = "..."
-
-    static func launch(_ command: String) throws {
-        // terminal-specific implementation
-    }
-}
-```
-
-`terms/init.swift` contains the registry:
-
-```swift
-static let launchers: [String: TerminalLaunchFunction] = [
-    AppleTerminal.BUNDLE_ID: AppleTerminal.launch,
-    ITerm2.BUNDLE_ID: ITerm2.launch,
-    // ...
-]
-```
-
-## Supported macOS terminals
-
-| Terminal | Bundle ID |
-| --- | --- |
-| Terminal.app | `com.apple.Terminal` |
-| iTerm2 | `com.googlecode.iterm2` |
-| Alacritty | `org.alacritty` |
-| WezTerm | `com.github.wez.wezterm` |
-| kitty | `net.kovidgoyal.kitty` |
-| Ghostty | `com.mitchellh.ghostty` |
-
-
-## Configure the default terminal
-
-Create:
+Each terminal integration lives in its own adapter under:
 
 ```text
-~/.terminal.default
+Sources/terms/
 ```
 
-with one bundle ID:
+## License
 
-```text
-com.mitchellh.ghostty
-```
-
-or:
-
-```text
-com.github.wez.wezterm
-```
-
-Comments and blank lines are allowed. The first non-empty, non-comment line is
-used.
-
-If the file does not exist or contains no bundle ID, NvimOpen silently defaults
-to Terminal.app.
-
-## Unknown terminal behavior
-
-If `~/.terminal.default` contains a bundle ID that NvimOpen does not know, the
-app displays a detailed alert explaining that macOS has no universal terminal
-"execute command" API.
-
-The alert offers:
-
-- **Use Terminal.app** — run the current `nvim ...` command in Terminal.app.
-- **Cancel** — do nothing and quit NvimOpen.
-
-The same fallback is shown if the bundle ID is registered but the terminal is
-not installed.
-
-## Build
-
-Requires Xcode Command Line Tools or Xcode:
-
-```sh
-./build.sh
-```
-
-Output:
-
-```text
-dist/NvimOpen.app
-```
-
-Install:
-
-```sh
-cp -R dist/NvimOpen.app /Applications/
-```
-
-## Finder setup
-
-For each type you care about:
-
-1. Select a code / JSON / YAML file in Finder.
-2. Choose **Get Info**.
-3. Under **Open with**, select `NvimOpen.app`.
-4. Click **Change All...** if desired.
-
-The app declares broad `public.data` support so Finder can offer it as an
-`Open With` target. It does not automatically take ownership of file types.
-
-
+MIT — see [`LICENSE`](LICENSE).
