@@ -85,9 +85,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          release_notes="$(< RELEASE_NOTES.md)"
+
           gh release create "$GITHUB_REF_NAME" \
             "$ARCHIVE" \
             "$ARCHIVE.sha256" \
             --verify-tag \
             --generate-notes \
+            --notes "$release_notes" \
             --title "NvimOpen $VERSION"
