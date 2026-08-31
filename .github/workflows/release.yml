@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set version from tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Expected a stable semantic version tag such as v1.2.3; got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
+          version="${BASH_REMATCH[1]}"
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleShortVersionString $version" \
+            Info.plist
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" \
+            Info.plist
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build ARM64 app
+        env:
+          NVMOPEN_TARGET: arm64-apple-macosx11.0
+        run: ./build.sh
+
+      - name: Verify app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          executable="dist/NvimOpen.app/Contents/MacOS/NvimOpen"
+          lipo "$executable" -verify_arch arm64
+          codesign --verify --deep --strict "dist/NvimOpen.app"
+
+          built_version="$(/usr/libexec/PlistBuddy \
+            -c 'Print :CFBundleShortVersionString' \
+            dist/NvimOpen.app/Contents/Info.plist)"
+          test "$built_version" = "${{ steps.version.outputs.version }}"
+
+      - name: Package release
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive="NvimOpen-${GITHUB_REF_NAME}-macos-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            dist/NvimOpen.app \
+            "$archive"
+          shasum -a 256 "$archive" > "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release create "$GITHUB_REF_NAME" \
+            "$ARCHIVE" \
+            "$ARCHIVE.sha256" \
+            --verify-tag \
+            --generate-notes \
+            --title "NvimOpen $VERSION"
